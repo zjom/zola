@@ -555,6 +555,7 @@ pub fn serve(
         ("static", WatchMode::Optional, RecursiveMode::Recursive),
         ("templates", WatchMode::Optional, RecursiveMode::Recursive),
         ("themes", WatchMode::Condition(site.config.theme.is_some()), RecursiveMode::Recursive),
+        ("tera", WatchMode::Optional, RecursiveMode::NonRecursive),
     ];
     watch_this.extend(
         extra_watch_paths
