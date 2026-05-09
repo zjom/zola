@@ -1,3 +1,4 @@
+mod custom;
 pub mod filters;
 pub mod global_fns;
 
@@ -9,6 +10,8 @@ use tera::{Context, Tera};
 
 use errors::{Context as ErrorContext, Result, bail};
 use utils::templates::rewrite_theme_paths;
+
+use crate::custom::Registry;
 
 pub static ZOLA_TERA: Lazy<Tera> = Lazy::new(|| {
     let mut tera = Tera::default();
@@ -81,6 +84,8 @@ pub fn load_tera(path: &Path, config: &Config) -> Result<Tera> {
         tera.extend(&tera_theme)?;
     }
     tera.extend(&ZOLA_TERA)?;
+    let registry = Registry::new();
+    registry.register(path.join("tera"), &mut tera)?;
     tera.build_inheritance_chains()?;
 
     if path.join("templates").join("robots.txt").exists() {

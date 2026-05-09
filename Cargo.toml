@@ -120,6 +120,7 @@ url = "2"
 walkdir = "2"
 webp = "0.3"
 giallo = {version = "0.2", features = ["dump"]}
+rhai = {version = "1.24.0", features = ["serde", "sync"] }
 
 # Internal crates
 config = { path = "components/config" }

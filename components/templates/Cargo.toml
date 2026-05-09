@@ -26,6 +26,7 @@ content = { workspace = true }
 config = { workspace = true }
 imageproc = { workspace = true }
 markdown = { workspace = true }
+rhai = {workspace = true}
 
 [dev-dependencies]
 mockito = "1.6"
