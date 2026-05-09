@@ -11,9 +11,9 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 
-use log;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
+use templates::custom::Registry;
 use tera::{Context, Tera};
 use walkdir::{DirEntry, WalkDir};
 
@@ -71,6 +71,7 @@ pub struct Site {
     shortcode_definitions: HashMap<String, ShortcodeDefinition>,
     /// Whether to check external links
     check_external_links: bool,
+    pub registry: Registry,
 }
 
 impl Site {
@@ -86,7 +87,8 @@ impl Site {
             config.merge_with_theme(path.join("themes").join(&theme).join("theme.toml"), &theme)?;
         }
 
-        let tera = load_tera(path, &config)?;
+        let registry = Registry::new();
+        let tera = load_tera(path, &config, &registry)?;
         let shortcode_definitions = utils::templates::get_shortcodes(&tera);
 
         let content_path = path.join("content");
@@ -100,6 +102,7 @@ impl Site {
             base_path: path.to_path_buf(),
             config,
             tera,
+            registry,
             imageproc: Arc::new(Mutex::new(imageproc)),
             live_reload: None,
             output_path,
@@ -165,6 +168,13 @@ impl Site {
         self.tera.full_reload()?;
         // TODO: be smarter than that, no need to recompile sass for example
         self.build()
+    }
+
+    /// Reloads user defined custom tera functions,filters,tests
+    /// Anything with the same name is overwritten
+    /// TODO: registered tera fft's are only removed when server is restarted
+    pub fn reload_tera_registry(&mut self) -> Result<()> {
+        self.registry.register(&self.base_path, &mut self.tera)
     }
 
     pub fn set_base_url(&mut self, base_url: String) {
@@ -731,7 +741,7 @@ impl Site {
     }
 
     /// Deletes the `public` directory (only for `zola build`) and builds the site
-    pub fn build(&self) -> Result<()> {
+    pub fn build(&mut self) -> Result<()> {
         let mut start = Instant::now();
         // Do not clean on `zola serve` otherwise we end up copying assets all the time
         if self.build_mode == BuildMode::Disk {
@@ -758,6 +768,8 @@ impl Site {
             start = log_time(start, "Built search index");
         }
 
+        self.reload_tera_registry()?;
+        start = log_time(start, "Reloaded tera extensions");
         // Render aliases first to allow overwriting
         self.render_aliases()?;
         start = log_time(start, "Rendered aliases");
@@ -824,7 +836,7 @@ impl Site {
         }
 
         for (filename, content) in themes {
-            let p = self.static_path.join(&filename);
+            let p = self.static_path.join(filename);
             if !p.exists() {
                 create_file(&p, content)?;
             }
@@ -1004,18 +1016,13 @@ impl Site {
                         } else {
                             PathBuf::from(format!("{}/{}", taxonomy.slug, item.slug))
                         }
+                    } else if let Some(ref taxonomy_root) = self.config.taxonomy_root {
+                        PathBuf::from(format!(
+                            "{}/{}/{}/{}",
+                            taxonomy.lang, taxonomy_root, taxonomy.slug, item.slug
+                        ))
                     } else {
-                        if let Some(ref taxonomy_root) = self.config.taxonomy_root {
-                            PathBuf::from(format!(
-                                "{}/{}/{}/{}",
-                                taxonomy.lang, taxonomy_root, taxonomy.slug, item.slug
-                            ))
-                        } else {
-                            PathBuf::from(format!(
-                                "{}/{}/{}",
-                                taxonomy.lang, taxonomy.slug, item.slug
-                            ))
-                        }
+                        PathBuf::from(format!("{}/{}/{}", taxonomy.lang, taxonomy.slug, item.slug))
                     };
                     self.render_feeds(
                         item.pages.iter().map(|p| library.pages.get(p).unwrap()).collect(),

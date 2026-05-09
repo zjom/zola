@@ -1,4 +1,4 @@
-mod custom;
+pub mod custom;
 pub mod filters;
 pub mod global_fns;
 
@@ -46,7 +46,7 @@ pub fn render_redirect_template(url: &str, tera: &Tera) -> Result<String> {
         .with_context(|| format!("Failed to render alias for '{}'", url))
 }
 
-pub fn load_tera(path: &Path, config: &Config) -> Result<Tera> {
+pub fn load_tera(path: &Path, config: &Config, registry: &Registry) -> Result<Tera> {
     let tpl_glob = format!(
         "{}/{}",
         path.to_string_lossy().replace('\\', "/"),
@@ -84,7 +84,6 @@ pub fn load_tera(path: &Path, config: &Config) -> Result<Tera> {
         tera.extend(&tera_theme)?;
     }
     tera.extend(&ZOLA_TERA)?;
-    let registry = Registry::new();
     registry.register(path.join("tera"), &mut tera)?;
     tera.build_inheritance_chains()?;
 
